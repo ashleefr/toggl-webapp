@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e2127">
+    <link rel="manifest" href="/static/manifest.json">
+    <title>Toggl Пульт</title>
+    <link rel="icon" href="{{ url_for('static', filename='icon-192.png') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #1e2127; --surface-color: #282c34; --text-primary: #e6e6e6;
+            --text-secondary: #9da5b4; --accent-color: #61afef; --time-color: #98c379;
+            --border-color: rgba(255, 255, 255, 0.1);
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body {
+            height: 100%; margin: 0; background: var(--bg-color); color: var(--text-primary);
+            font-family: 'Inter', -apple-system, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        .container {
+            display: flex; flex-direction: column; height: 100%;
+            padding: clamp(15px, 3vh, 30px);
+        }
+        header, footer { text-align: center; flex-shrink: 0; width: 100%; }
+        #description { display: none; font-size: clamp(1.5em, 4vw, 2em); font-weight: 500; min-height: 1.2em; transition: color 0.3s ease; }
+        #duration { font-size: clamp(2.5em, 8vw, 5em); font-weight: 700; color: var(--text-secondary); letter-spacing: 1px; }
+        main.controls {
+            flex-grow: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            grid-auto-rows: 1fr; gap: clamp(10px, 2vw, 20px); width: 100%;
+            max-width: 1400px; margin: 0 auto; padding: clamp(15px, 3vh, 30px) 0;
+        }
+        .button {
+            border: 1px solid var(--border-color); border-radius: 18px;
+            background: var(--surface-color); color: var(--text-primary); cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: transform 0.15s ease, background-color 0.2s, opacity 0.2s, border-color 0.2s;
+            will-change: transform; padding: 10px; min-height: 80px;
+        }
+        .button:active { transform: scale(0.95); }
+        .button .project-name { font-weight: 500; font-size: clamp(1em, 2.5vw, 1.3em); text-align: center; }
+        .button .project-time { font-size: clamp(0.9em, 2vw, 1.1em); font-weight: 600; color: var(--time-color); margin-top: 12px; }
+        footer { margin-top: auto; }
+        .footer-label { font-size: clamp(0.9em, 2.5vw, 1.1em); color: var(--text-secondary); }
+        #total-today { font-size: clamp(1.5em, 5vw, 2.2em); font-weight: 600; color: var(--accent-color); margin-top: 5px;}
+
+        .button.running { background: var(--time-color); color: var(--bg-color); border-color: var(--time-color); transform: scale(1.05); }
+        .button.running .project-name { font-weight: 700; }
+        .button.running .project-time { color: rgba(0,0,0,0.7); }
+        body.timer-running .button:not(.running) { opacity: 0.3; pointer-events: none; }
+        body.timer-running #description { display: block; color: var(--time-color); }
+        body.timer-running #duration { color: var(--accent-color); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div id="description">Таймер запущен</div>
+            <div id="duration">00:00:00</div>
+        </header>
+        <main class="controls" id="controls-grid">
+            {% for project in projects %}
+            <button class="button" id="project-{{ project.id }}" data-project-id="{{ project.id }}" data-project-name="{{ project.name }}">
+                <span class="project-name">{{ project.name }}</span>
+                <span class="project-time" id="time-{{ project.id }}">00:00:00</span>
+            </button>
+            {% else %}
+            <p>Проекты не найдены. Создайте их в Toggl.</p>
+            {% endfor %}
+        </main>
+        <footer>
+            <div class="footer-label">Всего за сегодня</div>
+            <div id="total-today">00:00:00</div>
+        </footer>
+    </div>
+
+    <script>
+        const descriptionDiv = document.getElementById('description');
+        const durationDiv = document.getElementById('duration');
+        const totalTodayDiv = document.getElementById('total-today');
+        let currentRunningProjectId = null;
+        let animationFrameId = null;
+
+        function formatDuration(totalSeconds) {
+            if (isNaN(totalSeconds) || totalSeconds < 0) totalSeconds = 0;
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = Math.floor(totalSeconds % 60);
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function startLocalTimer(startTime) {
+            let lastFormattedTime = "";
+            function tick() {
+                const now = new Date();
+                const elapsedSeconds = (now - startTime) / 1000;
+                const newFormattedTime = formatDuration(elapsedSeconds);
+                if (newFormattedTime !== lastFormattedTime) {
+                    durationDiv.innerText = newFormattedTime;
+                    lastFormattedTime = newFormattedTime;
+                }
+                animationFrameId = requestAnimationFrame(tick);
+            }
+            tick();
+        }
+
+        function stopLocalTimer() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+        }
+
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                stopLocalTimer();
+                document.body.classList.remove('timer-running');
+                
+                const runningButton = document.querySelector('.button.running');
+                if(runningButton) {
+                    runningButton.classList.remove('running');
+                }
+                
+                if (data.status === 'running') {
+                    document.body.classList.add('timer-running');
+                    descriptionDiv.innerText = data.text;
+                    currentRunningProjectId = data.project_id;
+                    if(currentRunningProjectId) {
+                        const button = document.getElementById(`project-${currentRunningProjectId}`);
+                        if (button) button.classList.add('running');
+                    }
+                    startLocalTimer(new Date(data.start));
+                } else {
+                    descriptionDiv.innerText = 'Таймер остановлен';
+                    durationDiv.innerText = '00:00:00';
+                    currentRunningProjectId = null;
+                }
+            } catch (error) {
+                descriptionDiv.innerText = "Ошибка подключения";
+                console.error("Ошибка в updateStatus:", error);
+            }
+        }
+
+        async function updateSummary() {
+            try {
+                const response = await fetch('/api/summary');
+                const data = await response.json();
+                
+                totalTodayDiv.innerText = data.total_today || '00:00:00';
+                
+                document.querySelectorAll('.project-time').forEach(el => el.innerText = '00:00:00');
+                
+                if (data.projects) {
+                    for (const projectId in data.projects) {
+                        const timeEl = document.getElementById(`time-${projectId}`);
+                        if (timeEl) {
+                            timeEl.innerText = data.projects[projectId];
+                        }
+                    }
+                }
+            } catch(error) {
+                totalTodayDiv.innerText = "Ошибка";
+                console.error("Ошибка в updateSummary:", error);
+            }
+        }
+
+        async function handleButtonClick(button) {
+            const projectId = parseInt(button.dataset.projectId);
+            const projectName = button.dataset.projectName;
+            const isStopping = projectId === currentRunningProjectId;
+            const finalProjectId = isStopping ? null : projectId;
+            const description = isStopping ? null : projectName;
+            
+            stopLocalTimer();
+            
+            await fetch('/api/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: finalProjectId, description: description })
+            });
+            
+            setTimeout(() => {
+                updateStatus();
+                updateSummary();
+            }, 300);
+        }
+        
+        document.querySelectorAll('.button').forEach(button => {
+            button.addEventListener('click', () => {
+                handleButtonClick(button);
+            });
+        });
+
+        // Запуск приложения
+        updateStatus();
+        updateSummary();
+        setInterval(updateStatus, 5000);
+        setInterval(updateSummary, 30000);
+    </script>
+</body>
+</html>
