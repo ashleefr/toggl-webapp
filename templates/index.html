@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#1e2127">
+    <meta name="theme-color" content="#000000">
     <link rel="manifest" href="/static/manifest.json">
     <title>Toggl Пульт</title>
     <link rel="icon" href="{{ url_for('static', filename='icon-192.png') }}">
@@ -12,57 +12,83 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #1e2127; --surface-color: #282c34; --text-primary: #e6e6e6;
-            --text-secondary: #9da5b4; --accent-color: #61afef;
+            --bg-color: #1B1B1B; --surface-color: #282c34; --text-primary: #e6e6e6;
+            --text-secondary: #9da5b4; --accent-color: #61afef; --time-color: #98c379;
         }
         *, *::before, *::after { box-sizing: border-box; }
         html, body {
             height: 100%; margin: 0; background: var(--bg-color); color: var(--text-primary);
-            font-family: 'Inter', -apple-system, sans-serif;
-            -webkit-tap-highlight-color: transparent;
-            overflow: hidden;
-            touch-action: manipulation;
+            font-family: 'Inter', -apple-system, sans-serif; -webkit-tap-highlight-color: transparent;
+            overflow: hidden; touch-action: manipulation;
         }
         .container {
             display: flex; flex-direction: column; height: 100%;
             padding: clamp(15px, 3vh, 30px);
         }
-        header, footer { text-align: center; flex-shrink: 0; width: 100%; }
-        #description { display: none; font-size: clamp(1.5em, 4vw, 2em); font-weight: 500; min-height: 1.2em; transition: color 0.3s ease; }
-        #duration { font-size: clamp(2.5em, 8vw, 5em); font-weight: 700; color: var(--text-secondary); letter-spacing: 1px; }
+        header, footer { 
+            text-align: center; flex-shrink: 0; width: 100%; 
+        }
+        #description { 
+            display: none; font-size: clamp(1.5em, 4vw, 2em); 
+            font-weight: 500; min-height: 1.2em; transition: color 0.3s ease; 
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+            max-width: 90vw; margin: 0 auto; 
+        }
+        #duration { 
+            font-size: clamp(2.5em, 8vw, 5em); font-weight: 700; 
+            color: var(--text-secondary); letter-spacing: 1px; 
+        }
         main.controls {
             flex-grow: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
             grid-auto-rows: 1fr; gap: clamp(10px, 2vw, 20px); width: 100%;
             max-width: 1400px; margin: 0 auto; padding: clamp(15px, 3vh, 30px) 0;
         }
         .button {
-            border: 2px solid var(--project-color, var(--text-secondary));
-            border-radius: 18px;
+            border: 2px solid var(--project-color, var(--text-secondary)); border-radius: 18px;
             background: var(--surface-color); color: var(--text-primary); cursor: pointer;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             transition: transform 0.15s ease, background-color 0.2s, opacity 0.2s;
-            will-change: transform; padding: 10px; min-height: 80px;
+            will-change: transform; padding: 10px; min-height: 80px; overflow: hidden;
         }
         .button:active { transform: scale(0.95); }
-        .button .project-name { font-weight: 500; font-size: clamp(1em, 2.5vw, 1.3em); text-align: center; }
+        
+        .button .project-name {
+            font-weight: 500;
+            font-size: clamp(0.8em, 2vw, 1.1em);
+            text-align: center;
+            width: 95%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .button .project-time {
             font-size: clamp(0.9em, 2vw, 1.1em); font-weight: 600;
             color: var(--project-color, var(--text-secondary));
             margin-top: 12px;
         }
-        footer { margin-top: auto; }
-        .footer-label { font-size: clamp(0.9em, 2.5vw, 1.1em); color: var(--text-secondary); }
-        #total-today { font-size: clamp(1.5em, 5vw, 2.2em); font-weight: 600; color: var(--accent-color); margin-top: 5px;}
 
-        .button.running {
-            background: var(--project-color, var(--text-secondary));
-            border-color: var(--project-color, var(--text-secondary));
-            color: var(--bg-color);
-            transform: scale(1.05);
+        footer { margin-top: auto; }
+        .footer-label, #total-today {
+            display: inline-block;
+            vertical-align: baseline;
+        }
+        .footer-label { 
+            font-size: clamp(0.9em, 2.5vw, 1.1em); 
+            color: var(--text-secondary); margin-right: 0.5em; 
+        }
+        #total-today { 
+            font-size: clamp(1.5em, 5vw, 2.2em);
+            font-weight: 600; color: var(--accent-color); 
+        }
+
+        .button.running { 
+            background: var(--project-color, var(--text-secondary)); 
+            border-color: var(--project-color, var(--text-secondary)); 
+            color: #000000; 
+            transform: scale(1.05); 
         }
         .button.running .project-name { font-weight: 700; }
         .button.running .project-time { color: rgba(0,0,0,0.7); }
-        
         body.timer-running .button:not(.running) { opacity: 0.3; pointer-events: none; }
         body.timer-running #description { display: block; color: var(--project-color, var(--text-secondary)); }
         body.timer-running #duration { color: var(--accent-color); }
@@ -86,7 +112,7 @@
         </main>
         <footer>
             <div class="footer-label">Всего за сегодня</div>
-            <div id="total-today">00:00:00</div>
+            <div id="total-today"></div>
         </footer>
     </div>
 
