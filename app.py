@@ -41,6 +41,12 @@ def get_projects(workspace_id):
     response = requests.get(url, auth=(TOGGL_API_TOKEN, "api_token"))
     return response.json() or []
 
+try:
+    initialize_app_data()
+except ValueError as e:
+    print(f"КРИТИЧЕСКАЯ ОШИБКА ПРИ ЗАПУСКЕ: {e}")
+    exit(1)
+
 def get_daily_summary(workspace_id):
     """Получает сводный отчет за сегодня. Финальная рабочая версия."""
     today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
@@ -134,8 +140,4 @@ def api_toggle():
     return jsonify({"result": "toggled"})
 
 if __name__ == '__main__':
-    try:
-        initialize_app_data()
-    except ValueError as e:
-        print(f"КРИТИЧЕСКАЯ ОШИБКА ПРИ ЗАПУСКЕ: {e}")
-        exit(1)
+    app.run(host='0.0.0.0', port=1337, debug=True)
